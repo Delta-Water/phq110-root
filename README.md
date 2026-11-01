@@ -50,7 +50,7 @@ adb shell (uid 2000, shell 域, Enforcing)
 3. **为什么 cap 值长成 `base+0x830C6` 这种怪样子**：写原语的 value 不能是 0（零值写会直接
    把进程打死）；非零 value 还会被内核当指针解引用做第二次写。所以 cap 值必须是个
    「既含 `0xC6` 位、又是个合法内核指针」的东西。
-4. **为什么不能改 cred 指针**：换成 `&init_cred` 会让 SID 变成 `u:r:kernel:s0`（交付腿直接废），
+4. **为什么不能改 cred 指针**：换成 `&init_cred` 会让 SID 变成 `u:r:kernel:s0`（交付腿直接失效），
    而且静态对象被 `put_cred` 释放必然 panic。只能**原地改字段**。
 5. **为什么 `KASLR` 不是问题**：每个 boot 用 `perf_event_open` 采内核 IP 现场解出 slide `D`，
    两次独立采样一致才继续，否则**干净中止**（绝不向错误地址开火）。
@@ -99,7 +99,7 @@ python3 ~/termux_uid0.py --chan=tcp --port=10369 --secret-file="$HOME/zd_secret"
 ```
 
 `<NN>` 只是个轮次标签（进文件名和日志，不参与逻辑），随便给个整数。
-**每个 boot 只跑一次**；想再来一遍就正常重启手机（不是 fastboot、不是 9000 模式）。
+**每个 boot 只跑一次**；想再来一遍就正常重启手机（不是 fastboot，也不是 9008/EDL）。
 
 完整的参数解释、逐阶段判据、Termux 客户端全部子命令、故障排查表 → [`USAGE.md`](USAGE.md)。
 
