@@ -1,0 +1,12 @@
+# 本项目要在 Linux/WSL 与 Android(Termux) 上执行，必须保持 LF。
+# core.autocrlf=true 的 Windows 环境若不看这份文件，会把 build.sh / *.sh 改成 CRLF 而无法执行。
+* text=auto eol=lf
+
+*.sh    text eol=lf
+*.py    text eol=lf
+*.c     text eol=lf
+*.h     text eol=lf
+
+# 产物与二进制：不做任何转换
+*.bin   binary
+build/* binary

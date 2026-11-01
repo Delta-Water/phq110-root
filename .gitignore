@@ -1,0 +1,15 @@
+# 构建中间产物（build.sh 会生成 .o）
+*.o
+*.o.tmp
+build/*.o
+
+# Python
+__pycache__/
+*.pyc
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
