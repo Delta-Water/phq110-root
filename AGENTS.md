@@ -14,6 +14,7 @@
 > 运行侧依赖只有 `adb` + 设备上的 Termux(`python3`)；重编需要 Linux/WSL +
 > `aarch64-linux-gnu-gcc`（见 `BUILD.md`）。
 >
+> 设备指纹 / 链路可用的基线：`BASELINE.md`（系统更新前先对比它，别直接跑链）。
 > 人类入口：`README.md`（面向人类的总览，**不要**拿它当 agent 规范）；
 > 风险与红线：`RISKS.md`；验收记录：`DEFECTS.md` / `ACCEPTANCE.md`。
 
