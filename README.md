@@ -98,6 +98,18 @@ python3 ~/termux_uid0.py --chan=tcp --port=10369 --secret-file="$HOME/zd_secret"
 # → uid=0 euid=0 gid=0 pid=<rootd pid> ctx=u:r:shell:s0
 ```
 
+拿到 uid0 之后**还有一步**：把 `rootgate` 部署成常驻通道。`rootd` 只是跳板
+（寿命 1~5 分钟、连接预算 32 条），不是日常通道：
+
+```bash
+cp ops/rootx.py ops/deploy_root.py ops/rootgate_client.py ~/bin/ && chmod 700 ~/bin/*.py
+adb push ops/rootgate.sh /data/local/tmp/ && adb shell chmod 755 /data/local/tmp/rootgate.sh
+python3 ~/bin/deploy_root.py 10370          # 只花 rootd 1 条连接预算
+python3 ~/bin/rootx.py 'id'                 # 之后的唯一入口
+```
+
+原理与完整步骤见 [`ops/OPS.md`](ops/OPS.md)。
+
 `<NN>` 只是个轮次标签（进文件名和日志，不参与逻辑），随便给个整数。
 **每个 boot 只跑一次**；想再来一遍就正常重启手机（不是 fastboot，也不是 9008/EDL）。
 
@@ -115,8 +127,11 @@ python3 ~/termux_uid0.py --chan=tcp --port=10369 --secret-file="$HOME/zd_secret"
 | 第三方依赖 | **零**。单个静态二进制，无动态库、无 `su`、无 Magisk |
 | 最坏结果 | 内核 oops → `panic_on_oops=1` 让手机自动重启，约 5 秒，数据无恙 |
 
-代价是另一面：**rootd 一死，这次 boot 的 uid0 就永久没了**，只能再重启一次。
-没有任何 keeper / 自我重生机制（设计过，没实现）。
+代价是另一面：**交付的 `rootd` 一死，这次 boot 的 uid0 就永久没了**，只能再重启一次 ——
+二进制里没有 keeper / 自我重生机制（设计过，没实现）。
+
+`ops/` 的运维层绕开了这条：跑完立刻用 `rootd` 的一条连接把 uid0 的 `rootgate` 部署成
+常驻进程（脱离 pty、PPid=1），之后 `rootd` 死不死都不影响日常使用，见 [`ops/OPS.md`](ops/OPS.md)。
 
 ---
 
@@ -131,7 +146,8 @@ python3 ~/termux_uid0.py --chan=tcp --port=10369 --secret-file="$HOME/zd_secret"
 - **这个 secret 泄露 = 把 uid0 送给全机所有应用。** 不要 `cat`、不要截图、不要放进日志或云同步。
 - 认证失败累计 3 次，daemon 会自杀（fail-closed）——所以**别拿错的 secret 反复试**。
 - 想彻底解决这个问题，应该换成 `AF_UNIX` socket + 目录 0600 + `SO_PEERCRED`。
-  **这个改进没有做**，当前交付就是 TCP + secret。
+  **交付二进制里没有这个改进**，仍是 TCP + secret；`ops/rootgate.py` 按这个方向实现了
+  一版独立的常驻通道（不监听任何网络端口、逐连接校验对端 uid），可以作为替代，见 [`ops/OPS.md`](ops/OPS.md)。
 
 `rootd` 的协议里也**没有写文件的操作**（帧类型 `G/I/R/X/F/P/Q`，没有 `W`）：
 它自己能读文件、能 exec，但不是一个「任意文件写入器」。
@@ -192,8 +208,9 @@ phq110-root/
 不把这些写成「已完成」，是这个项目的基本纪律：
 
 - ❌ **app 侧 `rish` 提权** —— 只有服务端证据，没有 `rish -c 'id'` 的原始输出；
-- ❌ **keeper / 自动重生** —— rootd 被杀就没了，二进制里没有这段代码；
-- ❌ **UDS + `SO_PEERCRED`** —— 只有设计建议，没有实现；
+- ❌ **keeper / 自动重生（交付二进制内）** —— rootd 被杀就没了，二进制里没有这段代码；
+  `ops/` 的常驻 rootgate 是绕过，不是 glx 里的 keeper；
+- ❌ **UDS + `SO_PEERCRED`（交付二进制内）** —— 交付通道仍是 TCP + secret，`ops/rootgate.py` 是另起的独立通道；
 - ❌ **per-SID 武装的成功率** —— 已知有静默失败、有 panic、有成功，但**没有统计**；
 - ❌ **多用户 / 工作资料** —— Termux 的 uid 不一定还是 10369，这条路没走过；
 - ❌ **换工具链重编出同 sha256** —— 未验证（原始工具链版本没记录）；

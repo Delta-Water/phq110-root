@@ -312,11 +312,16 @@ types : G=probe  I=id  R=path\0  X=argv(\0...\0\0)  F=argv+stdin  P=argv+pty std
   `idle` 语义：`poll()` 在这个秒数内没有任何新连接 ⇒ daemon 打印 `ROOTD|IDLE_TIMEOUT|86400` 并退出。
 - 保活（**非必需**，但长期使用建议）：
 
+> ⚠️ **不要用「每 60 秒 ping 一次」的循环喂 `idle`。** 每次 ping 花掉 1 条
+> `--max-conn` 预算，32 分钟就把 daemon 自己送走 —— 这正是现场踩过的坑。
+> 正解是**根本不保 rootd**：把它当跳板，跑完立刻部署常驻 `rootgate`，
+> 之后走 `rootx.py`，见 [`ops/OPS.md`](ops/OPS.md)。
+
+暂时不想部署 rootgate 时，退而求其次的做法是**只占 1 条长连接**，而不是反复重连：
+
 ```bash
-while :; do
-  python3 ~/termux_uid0.py --chan=tcp --port=10369 --secret-file="$HOME/zd_secret" id >/dev/null 2>&1
-  sleep 60
-done &
+nohup python3 ~/bin/rootmux.py >/dev/null 2>&1 &   # 整个 boot 只用 1 条预算
+python3 ~/bin/rootx.py 'id'                          # 自动走 rootmux
 ```
 
 - 另外两个更早的自愿退出源：`--max-conn=32` 用尽、认证失败 `authfail>=3`。
