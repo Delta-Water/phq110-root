@@ -58,9 +58,10 @@
 | Termux 内取 uid0（`termux_uid0.py ... id`） | **observed** |
 | Shizuku 服务端 uid0 + binder 投递 + Manager 配置落盘 | **observed** |
 | Shizuku **app 侧** `rish` 实际提权 | **未验证（人类待验）** |
-| keeper / 自动 re-spawn（rootd 被杀后本 boot 恢复 uid0） | **未实施**（可行性有离线裁定，二进制内无此代码） |
+| keeper / 自动 re-spawn（rootd 被杀后本 boot 恢复 uid0） | **未实施**（可行性有离线裁定，二进制内无此代码）；运维层另有解法，见下一行 |
 | per-SID 武装成功率统计 | **未统计**（已知有静默失败与 panic 各一次） |
-| unix socket 替代 TCP（配合 0600 的改进） | **未实施** |
+| 运维层：rootgate 常驻 + 一步部署 + 唯一入口（`ops/`） | **本地已实施**（p11n 验收之后补的真机运维代码，见 `ops/OPS.md`；不改交付二进制，仍属 `snapshot`） |
+| unix socket 替代 TCP（配合 0600 的改进） | **未实施**（交付二进制内）；`ops/rootgate.py` 已按 AF_UNIX + `SO_PEERCRED` 实现了一版独立通道 |
 | 多用户 / 工作资料适配 | **未验证** |
 
 ---
@@ -116,6 +117,16 @@ phq110-root/
 ├── tools/
 │   ├── termux_uid0.py Termux 侧客户端（tcp/file/unix；selftest/id/read/sh/exec/repl/wait）
 │   └── termux_accept.sh  更重的 Termux 验收脚本（p11m 时代写成，p11n 下非必需，见 USAGE）
+├── ops/               运维层（p11n 之后在真机上补的，**不属于冻结交付**，见 `ops/OPS.md`）
+│   ├── OPS.md         rootd 1~5 min 寿命 → rootgate 常驻 → rootx 单入口；冷启动部署步骤
+│   ├── rootx.py       唯一入口（后端 rootgate → rootmux → rootgate.sock → rootd，flock 串行）
+│   ├── deploy_root.py 一步部署：1 条 rootd 连接拉起 uid0 rootgate
+│   ├── rootgate.sh    设备侧通道模板（toybox nc -L、仅 loopback、首行密钥）
+│   ├── rootgate_client.py  nc 通道客户端
+│   ├── rootctl.py     AF_UNIX 形态 rootgate 的客户端（ping/status/run/sh）
+│   ├── rootgate.py    AF_UNIX + SO_PEERCRED 形态的通道（AGENTS.md §1 提到的改进方向）
+│   ├── rootgate_install.sh  拉起 rootgate.py（含 shell 域 exec 探测）
+│   └── rootmux.py     复用一条 rootd 长连接，节省 32 条连接预算
 └── build.sh           自包含重建脚本（只读本目录；面向 Linux/WSL）
 ```
 
@@ -216,6 +227,10 @@ python3 ~/termux_uid0.py --chan=tcp --port=10369 --secret-file="$HOME/zd_secret"
 详细用法（`--chan=tcp|file`、R/X/F/P 四类操作、**没有 W 写操作**、保活、Shizuku/rish 验收、
 故障排查）见 `USAGE.md`。
 
+> **日常不要直连 10369。** `rootd` 寿命只有 1~5 分钟、连接预算 32 条，正确姿势是紧接着跑
+> `python3 ~/bin/deploy_root.py` 把 rootgate 部署成常驻通道，之后一律
+> `python3 ~/bin/rootx.py '<cmd>'`。完整步骤与原理见 `ops/OPS.md`。
+
 ---
 
 ## 6. 安全提醒（**最高优先级**，详见 `RISKS.md` §1）
@@ -253,6 +268,8 @@ python3 ~/termux_uid0.py --chan=tcp --port=10369 --secret-file="$HOME/zd_secret"
 - `build/glx_p11n`：这是**唯一真机验证过**的二进制（sha256 见 `ARTIFACTS.md`）；改 sha 就作废。
 - `src/*.c` / `src/*.h`：读链/武装/cap 写/stage3 常量一旦改动必须重新上机验证。
 - `tools/termux_uid0.py`：Termux 侧唯一交付客户端。
+- `ops/`：运维层，**可以改**（它是活的运维代码，不是冻结交付），但改了要在 `ops/OPS.md`
+  里同步，且不要顺手改动 `build/` `src/` 去"配合"它。
 - 任何文件都不要清掉；本项目是一次性快照（`snapshot`）。
 
 ---

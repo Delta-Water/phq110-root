@@ -155,11 +155,15 @@ phq110-root/
 ├── build/glx_p11n        真机验证过的二进制（1007336 B）
 ├── src/                  主程序 + 内嵌 rootd + Shizuku 启动器（C）
 ├── tools/                Termux 客户端（Python）与重验收脚本（sh）
+├── ops/                  运维层（p11n 之后补的）：把 rootd 当跳板、部署常驻 rootgate、单一入口 rootx
 └── build.sh              一键重编（Linux/WSL）
 ```
 
 **建议阅读顺序**：本文件 → `ARCHITECTURE.md` §4（那 13 发到底在干什么）→ `RISKS.md`
 （上机前的红线）→ 真要用再翻 `USAGE.md`。
+
+> 装完别停在 10369：`rootd` 寿命只有 1~5 分钟、连接预算 32 条，日常要走
+> `ops/deploy_root.py` → `rootx.py`，见 [`ops/OPS.md`](ops/OPS.md)。
 
 ---
 
